@@ -1,0 +1,8 @@
+[package]
+name = "sqllite_example"
+version = "0.1.0"
+edition = "2024"
+authors = ["Marius Bock <marius.bock@gmail.com>"]
+
+[dependencies]
+rusqlite = { version = "0.37.0", features = ["bundled"] }
