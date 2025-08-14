@@ -42,15 +42,12 @@ macro_rules! sqlite_from_struct {
             ///
             /// # Arguments
             ///
-            /// * `db_path` - A string slice that holds the path to the SQLite database file.
+            /// * `conn` - A reference to an open SQLite connection.
             ///
             /// # Returns
             ///
             /// * `rusqlite::Result<()>` - An empty Ok result on success, or an Err on failure.
-            pub fn create_table(db_path: &str) -> Result<()> {
-                // Open a connection to the SQLite database file.
-                let conn = Connection::open(db_path)?;
-
+            pub fn create_table(conn: &Connection) -> Result<()> {
                 // --- Step 3: Build the "CREATE TABLE" SQL string ---
 
                 // Derive table name from struct name (e.g., User -> users)
@@ -99,7 +96,7 @@ macro_rules! sqlite_from_struct {
                 // --- Step 4: Execute the SQL statement ---
                 conn.execute(&create_sql, [])?;
 
-                println!("Successfully created table '{}' in '{}'.", table_name, db_path);
+                println!("Successfully created table '{}'.", table_name);
 
                 Ok(())
             }
@@ -136,15 +133,23 @@ sqlite_from_struct! {
 
 
 fn main() {
+    let db_path = "company.db";
+    let conn = match Connection::open(db_path) {
+        Ok(conn) => conn,
+        Err(e) => {
+            eprintln!("Failed to open database '{}': {}", db_path, e);
+            return;
+        }
+    };
+
     // --- Create the 'users' table ---
-    // The database file will be created if it doesn't exist.
-    match User::create_table("company.db") {
+    match User::create_table(&conn) {
         Ok(_) => println!("User table creation successful.\n"),
         Err(e) => eprintln!("Error creating user table: {}\n", e),
     }
 
     // --- Create the 'products' table in the same database ---
-    match Product::create_table("company.db") {
+    match Product::create_table(&conn) {
         Ok(_) => println!("Product table creation successful."),
         Err(e) => eprintln!("Error creating product table: {}", e),
     }
