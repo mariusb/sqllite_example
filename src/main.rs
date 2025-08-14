@@ -100,6 +100,41 @@ macro_rules! sqlite_from_struct {
 
                 Ok(())
             }
+
+            /// Inserts an instance of the struct into the corresponding database table.
+            /// The `id` field is ignored as it's assumed to be auto-incrementing.
+            ///
+            /// # Arguments
+            ///
+            /// * `conn` - A reference to an open SQLite connection.
+            ///
+            /// # Returns
+            ///
+            /// * `rusqlite::Result<usize>` - The number of rows inserted (should be 1) on success.
+            pub fn insert(&self, conn: &Connection) -> Result<usize> {
+                let table_name = stringify!($struct_name).to_lowercase() + "s";
+
+                let mut columns = Vec::new();
+                let mut placeholders = Vec::new();
+                let mut params: Vec<&dyn rusqlite::types::ToSql> = Vec::new();
+
+                $(
+                    // At runtime, check if the field name is 'id'. If not, include it
+                    // in our INSERT statement.
+                    if stringify!($field_name) != "id" {
+                        columns.push(stringify!($field_name));
+                        placeholders.push("?");
+                        params.push(&self.$field_name);
+                    }
+                )*
+
+                let columns_sql = columns.join(", ");
+                let placeholders_sql = placeholders.join(", ");
+
+                let insert_sql = format!("INSERT INTO {} ({}) VALUES ({})", table_name, columns_sql, placeholders_sql);
+
+                conn.execute(&insert_sql, &params[..])
+            }
         }
     };
 }
@@ -150,7 +185,34 @@ fn main() {
 
     // --- Create the 'products' table in the same database ---
     match Product::create_table(&conn) {
-        Ok(_) => println!("Product table creation successful."),
-        Err(e) => eprintln!("Error creating product table: {}", e),
+        Ok(_) => println!("Product table creation successful.\n"),
+        Err(e) => eprintln!("Error creating product table: {}\n", e),
+    }
+
+    // --- Insert sample data ---
+    let user = User {
+        id: 1,
+        name: "Alice".into(),
+        email: "alice@example.com".into(),
+        age: 30,
+        is_active: true,
+    };
+
+    match user.insert(&conn) {
+        Ok(rows) => println!("Inserted {} user(s).\n", rows),
+        Err(e) => eprintln!("Error inserting user: {}\n", e),
+    }
+
+    let product = Product {
+        id: 1,
+        name: "Widget".into(),
+        price: 19.99,
+        in_stock: true,
+        image_data: vec![],
+    };
+
+    match product.insert(&conn) {
+        Ok(rows) => println!("Inserted {} product(s).\n", rows),
+        Err(e) => eprintln!("Error inserting product: {}\n", e),
     }
 }
